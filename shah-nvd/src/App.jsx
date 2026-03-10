@@ -36,6 +36,7 @@ export default function App() {
   const [draggingPiece, setDraggingPiece] = useState(null);
   const [gameHistory, setGameHistory] = useState([]);
   const [difficulty, setDifficulty] = useState("intermediate");
+  const [userColor, setUserColor] = useState("w");
   const [authMode, setAuthMode] = useState("login");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -44,11 +45,11 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? "");
   const [currentUser, setCurrentUser] = useState(null);
+  const [isGuest, setIsGuest] = useState(false);
   const engineRef = useRef(null);
   const boardRef = useRef(null);
   const suppressClickRef = useRef(false);
   const resultLoggedRef = useRef(false);
-  const userColor = "w";
 
   const authHeaders = useCallback(
     () => ({
@@ -163,6 +164,7 @@ export default function App() {
       localStorage.setItem(TOKEN_KEY, data.token);
       setAuthToken(data.token);
       setCurrentUser(data.user ?? null);
+      setIsGuest(false);
       setAuthPassword("");
       setGame(new Chess());
       setGameStarted(false);
@@ -193,6 +195,7 @@ export default function App() {
     localStorage.removeItem(TOKEN_KEY);
     setAuthToken("");
     setCurrentUser(null);
+    setIsGuest(false);
     setGameHistory([]);
     setGame(new Chess());
     setGameStarted(false);
@@ -259,17 +262,18 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser && !isGuest) return;
     if (!gameStarted) return;
     if (game.isGameOver()) return;
-    if (game.turn() !== "b") return;
+    if (game.turn() === userColor) return;
     if (isEngineThinking) return;
     requestEngineMove(game.fen());
-  }, [currentUser, game, gameStarted, isEngineThinking, requestEngineMove]);
+  }, [currentUser, game, gameStarted, isEngineThinking, isGuest, requestEngineMove, userColor]);
 
   function getGameResultSummary(currentGame) {
     if (currentGame.isCheckmate()) {
-      return currentGame.turn() === "b"
+      const winnerColor = currentGame.turn() === "w" ? "b" : "w";
+      return winnerColor === userColor
         ? { result: "Win", detail: "Checkmate" }
         : { result: "Loss", detail: "Checkmate" };
     }
@@ -336,12 +340,18 @@ export default function App() {
     const squareSize = boardRect.width / 8;
     const fileIndex = Math.floor((x - boardRect.left) / squareSize);
     const rankIndex = Math.floor((y - boardRect.top) / squareSize);
-    const file = FILES[fileIndex];
-    const rank = String(8 - rankIndex);
+    const clampedFileIndex = Math.min(Math.max(fileIndex, 0), 7);
+    const clampedRankIndex = Math.min(Math.max(rankIndex, 0), 7);
+    const file =
+      userColor === "w" ? FILES[clampedFileIndex] : FILES[FILES.length - 1 - clampedFileIndex];
+    const rank =
+      userColor === "w"
+        ? String(8 - clampedRankIndex)
+        : String(1 + clampedRankIndex);
 
     if (!file || !rank) return null;
     return `${file}${rank}`;
-  }, []);
+  }, [userColor]);
 
   function safeMove(move) {
     let moveResult = null;
@@ -502,7 +512,7 @@ export default function App() {
   }
 
   const statusMessage = !gameStarted
-    ? `Choose difficulty and click Start Game (${DIFFICULTY_CONFIG[difficulty].label})`
+    ? `Choose color and difficulty, then Start Game (${userColor === "w" ? "White" : "Black"}, ${DIFFICULTY_CONFIG[difficulty].label})`
     : game.isCheckmate()
     ? `Checkmate! ${game.turn() === "w" ? "Black" : "White"} wins!`
     : game.isDraw()
@@ -518,6 +528,10 @@ export default function App() {
   const wins = gameHistory.filter((entry) => entry.result === "Win").length;
   const losses = gameHistory.filter((entry) => entry.result === "Loss").length;
   const draws = gameHistory.filter((entry) => entry.result === "Draw").length;
+  const filesForView = userColor === "w" ? FILES : [...FILES].reverse();
+  const ranksForView = userColor === "w" ? RANKS : [...RANKS].reverse();
+  const bottomRankForView = userColor === "w" ? "1" : "8";
+  const leftFileForView = userColor === "w" ? "a" : "h";
 
   if (authChecking) {
     return (
@@ -527,97 +541,212 @@ export default function App() {
     );
   }
 
-  if (!currentUser) {
+  if (!currentUser && !isGuest) {
     return (
       <div
         style={{
-          maxWidth: "420px",
-          margin: "30px auto",
-          padding: "24px",
-          borderRadius: "16px",
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+          boxSizing: "border-box",
           background:
-            "linear-gradient(160deg, rgba(52,34,20,0.92) 0%, rgba(24,15,10,0.96) 52%, rgba(61,38,22,0.92) 100%)",
-          boxShadow: "0 18px 36px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12)",
-          color: "#f8e7cf",
-          fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
+            "radial-gradient(circle at 10% 20%, rgba(120,86,44,0.2) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(180,112,52,0.16) 0%, transparent 45%), linear-gradient(150deg, #0f0b08 0%, #1d130d 52%, #120c08 100%)",
         }}
       >
-        <h2 style={{ margin: "0 0 14px", textAlign: "center" }}>
-          {authMode === "login" ? "Login" : "Create Account"}
-        </h2>
-        <form onSubmit={handleAuthSubmit}>
-          <div style={{ marginBottom: "10px" }}>
-            <input
-              value={authUsername}
-              onChange={(event) => setAuthUsername(event.target.value)}
-              placeholder="Username"
-              autoComplete="username"
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "430px",
+            padding: "26px 24px 22px",
+            borderRadius: "18px",
+            background:
+              "linear-gradient(160deg, rgba(54,35,20,0.94) 0%, rgba(24,15,10,0.97) 52%, rgba(66,40,22,0.94) 100%)",
+            boxShadow:
+              "0 24px 50px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 1px rgba(255,255,255,0.08)",
+            color: "#f8e7cf",
+            fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              marginBottom: "14px",
+              borderRadius: "12px",
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(0,0,0,0.26)",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 10px",
+                textAlign: "center",
+                fontWeight: 700,
+                color: "#f8e7cf",
+                letterSpacing: "0.2px",
+                background: "linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.24) 100%)",
+              }}
+            >
+              Can you outsmart the AI?
+            </div>
+          </div>
+          <h2 style={{ margin: "0 0 4px", textAlign: "center", fontSize: "1.5rem" }}>
+            {authMode === "login" ? "Welcome Back" : "Create Account"}
+          </h2>
+          <p style={{ margin: "0 0 16px", textAlign: "center", color: "rgba(248,231,207,0.82)", fontSize: "0.92rem" }}>
+            {authMode === "login" ? "Sign in to view your personal matches." : "Register to keep match history private."}
+          </p>
+
+          <div
+            style={{
+              marginBottom: "14px",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "8px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode("login");
+                setAuthError("");
+              }}
+              style={{
+                padding: "8px 10px",
+                borderRadius: "8px",
+                border: authMode === "login" ? "1px solid #ffe4af" : "1px solid rgba(255,255,255,0.2)",
+                background:
+                  authMode === "login"
+                    ? "linear-gradient(180deg, #f4d8ab 0%, #d4a96f 100%)"
+                    : "rgba(0,0,0,0.24)",
+                color: authMode === "login" ? "#2b1a11" : "#f8e7cf",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode("register");
+                setAuthError("");
+              }}
+              style={{
+                padding: "8px 10px",
+                borderRadius: "8px",
+                border: authMode === "register" ? "1px solid #ffe4af" : "1px solid rgba(255,255,255,0.2)",
+                background:
+                  authMode === "register"
+                    ? "linear-gradient(180deg, #f4d8ab 0%, #d4a96f 100%)"
+                    : "rgba(0,0,0,0.24)",
+                color: authMode === "register" ? "#2b1a11" : "#f8e7cf",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Register
+            </button>
+          </div>
+
+          <form onSubmit={handleAuthSubmit}>
+            <div style={{ marginBottom: "10px" }}>
+              <input
+                value={authUsername}
+                onChange={(event) => setAuthUsername(event.target.value)}
+                placeholder="Username"
+                autoComplete="username"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "11px 12px",
+                  borderRadius: "9px",
+                  border: "1px solid rgba(255,255,255,0.24)",
+                  background: "rgba(0,0,0,0.3)",
+                  color: "#fff",
+                  outline: "none",
+                }}
+              />
+            </div>
+            <div style={{ marginBottom: "10px" }}>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                placeholder="Password"
+                autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "11px 12px",
+                  borderRadius: "9px",
+                  border: "1px solid rgba(255,255,255,0.24)",
+                  background: "rgba(0,0,0,0.3)",
+                  color: "#fff",
+                  outline: "none",
+                }}
+              />
+            </div>
+            {authError ? (
+              <div
+                style={{
+                  color: "#ffb3b3",
+                  marginBottom: "10px",
+                  fontSize: "0.9rem",
+                  background: "rgba(122,24,24,0.26)",
+                  border: "1px solid rgba(255,120,120,0.38)",
+                  borderRadius: "8px",
+                  padding: "8px 10px",
+                }}
+              >
+                {authError}
+              </div>
+            ) : null}
+            <button
+              type="submit"
+              disabled={authSubmitting}
               style={{
                 width: "100%",
-                boxSizing: "border-box",
-                padding: "10px 12px",
-                borderRadius: "8px",
-                border: "1px solid rgba(255,255,255,0.25)",
-                background: "rgba(0,0,0,0.25)",
-                color: "#fff",
+                padding: "11px 12px",
+                borderRadius: "10px",
+                border: "1px solid rgba(255,255,255,0.28)",
+                background: "linear-gradient(180deg, #f4d8ab 0%, #d4a96f 100%)",
+                color: "#2b1a11",
+                fontWeight: 700,
+                cursor: authSubmitting ? "default" : "pointer",
+                opacity: authSubmitting ? 0.72 : 1,
               }}
-            />
-          </div>
-          <div style={{ marginBottom: "10px" }}>
-            <input
-              type="password"
-              value={authPassword}
-              onChange={(event) => setAuthPassword(event.target.value)}
-              placeholder="Password"
-              autoComplete={authMode === "login" ? "current-password" : "new-password"}
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                padding: "10px 12px",
-                borderRadius: "8px",
-                border: "1px solid rgba(255,255,255,0.25)",
-                background: "rgba(0,0,0,0.25)",
-                color: "#fff",
-              }}
-            />
-          </div>
-          {authError ? (
-            <div style={{ color: "#ffb3b3", marginBottom: "10px", fontSize: "0.9rem" }}>{authError}</div>
-          ) : null}
+            >
+              {authSubmitting ? "Please wait..." : authMode === "login" ? "Sign In" : "Create Account"}
+            </button>
+          </form>
           <button
-            type="submit"
-            disabled={authSubmitting}
+            type="button"
+            onClick={() => {
+              setIsGuest(true);
+              setAuthError("");
+              setGameHistory([]);
+              setGame(new Chess());
+              setGameStarted(false);
+              setSelectedSquare(null);
+              setMoveTargets({});
+              setDraggedSourceSquare(null);
+              setDraggingPiece(null);
+            }}
             style={{
               width: "100%",
+              marginTop: "10px",
               padding: "10px 12px",
               borderRadius: "9px",
-              border: "1px solid rgba(255,255,255,0.28)",
-              background: "linear-gradient(180deg, #f4d8ab 0%, #d4a96f 100%)",
-              color: "#2b1a11",
+              border: "1px solid rgba(255,255,255,0.24)",
+              background: "rgba(0,0,0,0.24)",
+              color: "#f8e7cf",
               fontWeight: 700,
               cursor: "pointer",
             }}
           >
-            {authSubmitting ? "Please wait..." : authMode === "login" ? "Login" : "Register"}
-          </button>
-        </form>
-        <div style={{ marginTop: "12px", textAlign: "center", fontSize: "0.9rem" }}>
-          {authMode === "login" ? "No account yet?" : "Already have an account?"}{" "}
-          <button
-            onClick={() => {
-              setAuthMode((previous) => (previous === "login" ? "register" : "login"));
-              setAuthError("");
-            }}
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#f4d8ab",
-              cursor: "pointer",
-              textDecoration: "underline",
-              padding: 0,
-            }}
-          >
-            {authMode === "login" ? "Register" : "Login"}
+            Play as Guest (No History)
           </button>
         </div>
       </div>
@@ -717,15 +846,16 @@ export default function App() {
             boxShadow: "0 14px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
           }}
         >
-          {RANKS.map((rank) =>
-            FILES.map((file, index) => {
+          {ranksForView.map((rank) =>
+            filesForView.map((file) => {
               const square = `${file}${rank}`;
-              const isLight = (index + Number(rank)) % 2 === 0;
+              const fileNumber = file.charCodeAt(0) - 96;
+              const isLight = (fileNumber + Number(rank)) % 2 === 1;
               const piece = boardPosition[square];
               const isSelected = selectedSquare === square;
               const targetState = moveTargets[square];
-              const showFileLabel = rank === "1";
-              const showRankLabel = file === "a";
+              const showFileLabel = rank === bottomRankForView;
+              const showRankLabel = file === leftFileForView;
 
               return (
                 <div
@@ -839,6 +969,44 @@ export default function App() {
         </div>
 
         <div style={{ textAlign: "center", marginTop: "16px" }}>
+          {!gameStarted ? (
+            <div
+              style={{
+                marginBottom: "10px",
+                display: "flex",
+                gap: "8px",
+                justifyContent: "center",
+              }}
+            >
+              {[
+                { value: "w", label: "Play White" },
+                { value: "b", label: "Play Black" },
+              ].map((option) => {
+                const isActive = userColor === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => setUserColor(option.value)}
+                    style={{
+                      padding: "7px 12px",
+                      fontSize: "0.85rem",
+                      letterSpacing: "0.2px",
+                      fontWeight: 700,
+                      borderRadius: "8px",
+                      border: isActive ? "1px solid #ffe4af" : "1px solid rgba(255,255,255,0.22)",
+                      background: isActive
+                        ? "linear-gradient(180deg, #f4d8ab 0%, #d4a96f 100%)"
+                        : "rgba(0,0,0,0.26)",
+                      color: isActive ? "#2b1a11" : "#f8e7cf",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           <button
             onClick={() => {
               recordGameResultIfFinished(game);
@@ -887,7 +1055,7 @@ export default function App() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
           <div style={{ fontSize: "1rem", fontWeight: 700, textAlign: "left" }}>Previous Games</div>
           <button
-            onClick={handleLogout}
+            onClick={isGuest ? () => setIsGuest(false) : handleLogout}
             style={{
               padding: "4px 8px",
               fontSize: "0.76rem",
@@ -898,18 +1066,32 @@ export default function App() {
               cursor: "pointer",
             }}
           >
-            Logout
+            {isGuest ? "Exit Guest" : "Logout"}
           </button>
         </div>
         <div style={{ fontSize: "0.86rem", opacity: 0.94, marginBottom: "10px", textAlign: "left" }}>
-          User: <strong>{currentUser.username}</strong>
+          User: <strong>{isGuest ? "Guest" : currentUser.username}</strong>
         </div>
         <div style={{ fontSize: "0.9rem", opacity: 0.9, marginBottom: "12px", textAlign: "left" }}>
           W: {wins} | L: {losses} | D: {draws}
         </div>
 
         <div style={{ maxHeight: "520px", overflowY: "auto", paddingRight: "2px" }}>
-          {gameHistory.length === 0 ? (
+          {isGuest ? (
+            <div
+              style={{
+                fontSize: "0.88rem",
+                color: "rgba(255,244,225,0.75)",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "10px",
+                padding: "10px",
+                textAlign: "left",
+              }}
+            >
+              Guest mode does not save game history.
+            </div>
+          ) : gameHistory.length === 0 ? (
             <div
               style={{
                 fontSize: "0.88rem",
