@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": "405796f18136dfeb09cf7ade6a4be279",
+    "username": "admin",
+    "passwordHash": "c0827fcc8332430ace47467ec0a40dda:7f87812699ab73c96c021719c16b9f80e32ac670ec39a4db9de8e5eb9f50470e2255f27c74a82d4c11a7b027404564a16664f6a5c540f9bd7cc6d97f4dba1776",
+    "createdAt": "2026-03-10T18:01:39.656Z"
+  },
+  {
+    "id": "2c67efbf36f72d5b76ece38d13d31aef",
+    "username": "admin1",
+    "passwordHash": "06a24c43a24e4e5a8f2fff79a1999b10:c057bad6e90029f3c9f9ba822d2e5679468bf69bbb4caf1993111741d93ec3c20e09fed786cab8348ccf8e6edc4b37ba233db9fdcc1c8f050a0968cff8f6ecf8",
+    "createdAt": "2026-03-10T18:02:29.921Z"
+  }
+]
