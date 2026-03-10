@@ -16,3 +16,4 @@ In a second terminal:
 ```bash
 npm run dev
 ```
+Enjoy..
