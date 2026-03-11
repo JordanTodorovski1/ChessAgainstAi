@@ -10,5 +10,11 @@
     "username": "admin1",
     "passwordHash": "06a24c43a24e4e5a8f2fff79a1999b10:c057bad6e90029f3c9f9ba822d2e5679468bf69bbb4caf1993111741d93ec3c20e09fed786cab8348ccf8e6edc4b37ba233db9fdcc1c8f050a0968cff8f6ecf8",
     "createdAt": "2026-03-10T18:02:29.921Z"
+  },
+  {
+    "id": "20694ffee851c9a388a9d657e23e9b5a",
+    "username": "admin3",
+    "passwordHash": "f4717afdfd928662fcfce518e3440621:40cb83e77acea3a8501ab141c2505bf9a812c848af09165386858b85022a99c13d9d33da55ab11db15eef621349294fa33b916b5e567da5a655e5f7bbd96597c",
+    "createdAt": "2026-03-11T11:29:53.626Z"
   }
 ]
